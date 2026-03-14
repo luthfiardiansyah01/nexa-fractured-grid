@@ -45,8 +45,12 @@ const Walkthrough = ({ onClose }) => {
   };
 
   return (
-    <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center justify-center pointer-events-none w-full px-4">
-      <div className="bg-gray-800/95 border-2 border-blue-500 rounded-lg max-w-lg w-full p-6 shadow-2xl relative pointer-events-auto backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Dim overlay */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      
+      {/* Modal Content */}
+      <div className="bg-gray-800/95 border-2 border-blue-500 rounded-lg max-w-lg w-full p-6 shadow-2xl relative pointer-events-auto z-10">
         {/* Progress Bar */}
         <div className="flex gap-1 mb-6">
           {steps.map((_, i) => (

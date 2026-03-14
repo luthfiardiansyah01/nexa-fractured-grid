@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import MainMenu from './pages/MainMenu';
+import CitySelection from './pages/CitySelection';
 import CityMap from './pages/CityMap';
 import PuzzleInterface from './pages/PuzzleInterface';
 import MultiplayerLobby from './pages/MultiplayerLobby';
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/menu" element={<MainMenu />} />
+        <Route path="/city-select" element={<CitySelection />} />
         <Route path="/city-map" element={<CityMap />} />
         <Route path="/puzzle" element={<PuzzleInterface />} />
         <Route path="/lobby" element={<MultiplayerLobby />} />

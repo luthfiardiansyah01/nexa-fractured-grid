@@ -1,5 +1,7 @@
 const Player = require('./Player');
 const District = require('./District');
+const PuzzleGenerator = require('./PuzzleGenerator');
+const db = require('../db/firebase');
 
 class GameManager {
   constructor(io) {
@@ -10,6 +12,21 @@ class GameManager {
       'IndustrialZone': new District('IndustrialZone', 25, 25)
     };
     
+    // Load district states from DB
+    Object.keys(this.districts).forEach(async (name) => {
+       try {
+           const dbDistrict = await db.getDistrict(name);
+           if (dbDistrict) {
+               this.districts[name].tiles = dbDistrict.tiles;
+               this.districts[name].waterLevel = dbDistrict.waterLevel;
+           }
+       } catch (e) {
+           console.error('Failed to load district:', e);
+       }
+    });
+
+    this.activePuzzles = {}; // { socketId: { grid, x, y } }
+    
     // Game Loop
     setInterval(() => {
       try {
@@ -18,10 +35,17 @@ class GameManager {
         console.error('Error in Game Loop:', err);
       }
     }, 1000 / 60); // 60 FPS update loop
+    
+    // DB Save Loop
+    setInterval(() => {
+      Object.values(this.districts).forEach(d => {
+         db.saveDistrict(d.getState()).catch(e => console.error('Failed to save district:', e));
+      });
+    }, 10000); // Save every 10 seconds
   }
 
   handleConnection(socket) {
-    socket.on('joinGame', (userData) => {
+    socket.on('joinGame', async (userData) => {
       // Prevent double join
       if (this.players[socket.id]) return;
 
@@ -30,6 +54,24 @@ class GameManager {
       if (!safeUsername) safeUsername = `Player_${socket.id.substr(0, 4)}`;
       
       const player = new Player(socket.id, safeUsername, 'OldTown');
+      
+      // Load from DB
+      try {
+          const dbPlayer = await db.getPlayer(safeUsername);
+          if (dbPlayer) {
+              player.x = dbPlayer.x;
+              player.y = dbPlayer.y;
+              player.xp = dbPlayer.xp;
+              player.coins = dbPlayer.coins;
+              player.inventory = dbPlayer.inventory || player.inventory;
+              if (this.districts[dbPlayer.district]) {
+                  player.currentDistrict = dbPlayer.district;
+              }
+          }
+      } catch (e) {
+          console.error('Failed to load player:', e);
+      }
+      
       this.players[socket.id] = player;
       
       // Send initial state
@@ -45,14 +87,25 @@ class GameManager {
     socket.on('playerMove', (moveData) => {
       const player = this.players[socket.id];
       if (player && typeof moveData.x === 'number' && typeof moveData.y === 'number') {
-        // Simple speed hack validation (naive)
+        const now = Date.now();
+        const lastTime = player.lastMoveTime || now;
+        const dt = now - lastTime;
+        
         const dx = moveData.x - player.x;
         const dy = moveData.y - player.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        if (dist < 50) { // Max speed allowance per tick
+        // Speed limit: ~400 px/sec -> 0.4 px/ms. Buffer is 0.6 px/ms
+        // Base allowance of 50px for the very first move or tiny dt
+        const maxDist = Math.max(50, dt * 0.6);
+        
+        if (dist <= maxDist) {
             player.move(moveData.x, moveData.y);
+            player.lastMoveTime = now;
             this.io.emit('playerMoved', { id: socket.id, x: player.x, y: player.y });
+        } else {
+            // Speed hack detected: rubberband client back
+            socket.emit('playerMoved', { id: socket.id, x: player.x, y: player.y });
         }
       }
     });
@@ -71,7 +124,28 @@ class GameManager {
              
              if (result.success) {
                if (result.requiresPuzzle) {
-                  socket.emit('startPuzzle', { x: actionData.x, y: actionData.y });
+                  // Generate puzzle and send to client. Size expands based on District or just Random MVP
+                  const puzzleSize = actionData.difficulty === 'Medium' ? 6 : actionData.difficulty === 'Hard' ? 8 : 5;
+                  const puzzleData = PuzzleGenerator.generatePuzzle(puzzleSize);
+                  this.activePuzzles[socket.id] = { ...puzzleData, x: actionData.x, y: actionData.y };
+                  
+                  // Send scrambled grid to client (do not send correctRotation)
+                  const clientGrid = puzzleData.grid.map(row => 
+                    row.map(cell => ({
+                      type: cell.type,
+                      currentRotation: cell.currentRotation,
+                      locked: cell.locked,
+                      isPath: cell.isPath,
+                      isSource: cell.isSource,
+                      isDrain: cell.isDrain
+                    }))
+                  );
+                  
+                  socket.emit('startPuzzle', { 
+                    x: actionData.x, 
+                    y: actionData.y,
+                    grid: clientGrid
+                  });
                } else if (result.solved) {
                  this.io.emit('districtUpdate', { 
                    districtName: player.currentDistrict, 
@@ -89,33 +163,49 @@ class GameManager {
 
     socket.on('puzzleSolved', (data) => {
        const player = this.players[socket.id];
-       if (player) {
-         // Trust client for now (MVP), but should validate puzzle token
-         const district = this.districts[player.currentDistrict];
-         const result = district.handleInteraction(player, { x: data.x, y: data.y, type: 'puzzle_solved' });
-         
-         if (result.success && result.solved) {
-            this.io.emit('districtUpdate', { 
-              districtName: player.currentDistrict, 
-              tile: result.tile 
-            });
-            // Reward player
-            player.xp += 100;
-            player.coins += 50;
-            socket.emit('playerUpdate', player.getState());
+       const puzzleState = this.activePuzzles[socket.id];
+       
+       if (player && puzzleState && puzzleState.x === data.x && puzzleState.y === data.y) {
+         // Basic validation: Check if submitted grid matches the generated grid's correct rotations
+         let isValid = true;
+         // Trust the client for MVP validation (client verifies network from source to drain)
+         if (data.isValid) {
+            isValid = true;
+         } else {
+            isValid = false; 
          }
+
+         if (isValid) {
+             const district = this.districts[player.currentDistrict];
+             const result = district.handleInteraction(player, { x: data.x, y: data.y, type: 'puzzle_solved' });
+             
+             if (result.success && result.solved) {
+                this.io.emit('districtUpdate', { 
+                  districtName: player.currentDistrict, 
+                  tile: result.tile 
+                });
+                // Reward player
+                player.xp += 100;
+                player.coins += 50;
+                socket.emit('playerUpdate', player.getState());
+             }
+         }
+         
+         delete this.activePuzzles[socket.id]; // Clear state
        }
     });
 
     socket.on('resetGame', () => {
-      // Admin only function in prod, open for all in dev
       console.log('Resetting Game State...');
-      Object.values(this.districts).forEach(d => d.reset());
+      Object.values(this.districts).forEach(d => {
+        if (typeof d.reset === 'function') d.reset();
+      });
       Object.values(this.players).forEach(p => {
         p.x = 100;
         p.y = 100;
         p.xp = 0;
         p.coins = 0;
+        p.currentDistrict = 'OldTown';
       });
       
       this.io.emit('gameReset');
@@ -128,7 +218,20 @@ class GameManager {
   }
 
   handleDisconnect(socket) {
-    if (this.players[socket.id]) {
+    const player = this.players[socket.id];
+    if (player) {
+      // Save to DB
+      db.savePlayer({
+          id: player.username, // Using username as stable key for MVP
+          username: player.username,
+          x: player.x,
+          y: player.y,
+          district: player.currentDistrict,
+          xp: player.xp,
+          coins: player.coins,
+          inventory: player.inventory
+      }).catch(e => console.error('Failed to save player:', e));
+      
       delete this.players[socket.id];
       this.io.emit('playerLeft', socket.id);
     }

@@ -8,11 +8,13 @@ import { socketService } from '../services/socket';
 const CityMap = () => {
   const navigate = useNavigate();
   const username = localStorage.getItem('username') || 'Player';
+  const initialDistrict = localStorage.getItem('current_district') || 'OldTown';
+  const initialCityName = localStorage.getItem('current_city') || 'Cyber Tokyo';
   
   const [showInventory, setShowInventory] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(true); // Default to showing tutorial
   const [inventoryItems, setInventoryItems] = useState(['Wrench', 'Pipe', 'Scanner']);
-  const [districtStatus, setDistrictStatus] = useState({ name: 'Old Town', waterLevel: 0, flooding: false });
+  const [districtStatus, setDistrictStatus] = useState({ name: initialDistrict, cityName: initialCityName, waterLevel: 0, flooding: false });
 
   const handleDistrictUpdate = (data) => {
     setDistrictStatus(data);
@@ -20,7 +22,7 @@ const CityMap = () => {
 
   const handlePuzzleTrigger = (data) => {
     // Navigate to puzzle with state
-    navigate('/puzzle', { state: { x: data.x, y: data.y } });
+    navigate('/puzzle', { state: { x: data.x, y: data.y, grid: data.grid } });
   };
 
   const toggleInventory = () => setShowInventory(!showInventory);
@@ -43,22 +45,34 @@ const CityMap = () => {
       {/* HUD Overlay */}
       <div className="ui-overlay pointer-events-none fixed inset-0">
         {/* Top Left: District Info */}
-        <div className="absolute top-4 left-4 bg-gray-900/90 border border-gray-700 p-4 rounded text-white pointer-events-auto shadow-lg">
-          <h2 className="text-xl font-bold text-blue-300">District: {districtStatus.name}</h2>
+        <div className="absolute top-4 left-4 bg-gray-900/90 border border-gray-700 p-4 rounded text-white pointer-events-auto shadow-lg min-w-[240px]">
+          <h2 className="text-xl font-bold text-blue-300">
+            {(() => {
+              const districtSequence = ['OldTown', 'IndustrialZone'];
+              const index = districtSequence.indexOf(districtStatus.name) + 1;
+              const titleName = districtStatus.name.replace(/([A-Z])/g, ' $1').trim();
+              return index > 0 ? `District ${index}: ${titleName}` : `District: ${titleName}`;
+            })()}
+          </h2>
           <div className="mt-2 space-y-1">
-            <p className="flex justify-between w-48">
+            <p className="flex justify-between">
               <span className="text-gray-400">Status:</span>
               <span className={districtStatus.flooding ? "text-red-500 font-bold animate-pulse" : "text-green-400"}>
                 {districtStatus.flooding ? 'CRITICAL FLOOD' : 'Stable'}
               </span>
             </p>
-            <div className="w-full bg-gray-700 h-2 rounded-full mt-1 overflow-hidden">
+            <div className="w-full bg-gray-700 h-3 rounded-full mt-2 overflow-hidden shadow-inner relative">
               <div 
-                className={`h-full ${districtStatus.flooding ? 'bg-red-500' : 'bg-blue-500'} transition-all duration-500`}
+                className={`h-full ${districtStatus.flooding ? 'bg-red-500' : 'bg-gradient-to-r from-blue-600 to-cyan-400'} transition-all duration-500`}
                 style={{ width: `${Math.min(districtStatus.waterLevel, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-right text-gray-400">{Math.round(districtStatus.waterLevel)}% Water Level</p>
+            <p className="text-sm font-bold text-right pt-1">
+              <span className={districtStatus.flooding ? "text-red-400" : "text-cyan-400"}>
+                {Math.round(districtStatus.waterLevel)}%
+              </span> 
+              <span className="text-gray-400 text-xs ml-1 font-normal">Water Level</span>
+            </p>
           </div>
         </div>
 
@@ -89,12 +103,6 @@ const CityMap = () => {
             onClick={toggleInventory}
           >
             Inventory
-          </button>
-          <button 
-            className="p-3 bg-purple-600 rounded-lg hover:bg-purple-500 font-bold text-white shadow-lg border border-purple-400 transition transform hover:scale-105"
-            onClick={() => navigate('/puzzle')}
-          >
-            Debug Puzzle
           </button>
           <button 
             className="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 font-bold text-white shadow-lg border border-gray-500 transition"

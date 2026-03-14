@@ -31,6 +31,20 @@ class Database {
     }
     await admin.firestore().collection('players').doc(playerData.id).set(playerData);
   }
+
+  async getDistrict(id) {
+    if (this.useMock) return this.mockData.districts[id];
+    const doc = await admin.firestore().collection('districts').doc(id).get();
+    return doc.data();
+  }
+
+  async saveDistrict(districtData) {
+    if (this.useMock) {
+      this.mockData.districts[districtData.name] = districtData;
+      return;
+    }
+    await admin.firestore().collection('districts').doc(districtData.name).set(districtData);
+  }
 }
 
 module.exports = new Database();

@@ -81,7 +81,7 @@ class District {
     // and drainage reducing it
     
     // Random rain
-    if (Math.random() > 0.95) {
+    if (Math.random() > 0.999) {
       this.waterLevel += 1;
     }
 

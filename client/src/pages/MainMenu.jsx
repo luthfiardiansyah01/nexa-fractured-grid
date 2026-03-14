@@ -16,7 +16,7 @@ const MainMenu = () => {
 
       <div className="grid grid-cols-1 gap-4 w-64 z-10">
         <button 
-          onClick={() => navigate('/city-map')}
+          onClick={() => navigate('/city-select')}
           className="px-6 py-3 bg-blue-600 rounded hover:bg-blue-500 font-bold transition shadow-lg shadow-blue-500/50"
         >
           Enter City

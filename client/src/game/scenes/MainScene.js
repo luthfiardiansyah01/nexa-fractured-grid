@@ -112,15 +112,7 @@ export default class MainScene extends Phaser.Scene {
   }
 
   updateTile(tile) {
-    // Ideally we track sprites in a 2D array to update instead of creating new ones
-    // For MVP, we will try to find if a sprite exists at this location in a grid
-    // But for now, let's just clear and redraw or add on top (inefficient but works for small prototype)
-    
-    // Better approach: keys based on x-y
     const key = `${tile.x}-${tile.y}`;
-    if (this.mapTiles && this.mapTiles[key]) {
-        this.mapTiles[key].destroy();
-    }
     
     let texture = 'grass';
     if (tile.type === 1) texture = 'road';
@@ -128,14 +120,19 @@ export default class MainScene extends Phaser.Scene {
     if (tile.type === 3) texture = 'blocked_pipe';
     if (tile.type === 4) texture = 'water';
 
-    const sprite = this.add.sprite(tile.x * 32 + 16, tile.y * 32 + 16, texture);
-    sprite.setInteractive();
-    sprite.on('pointerdown', () => {
-      this.handleInteraction(tile.x, tile.y);
-    });
-    
     if (!this.mapTiles) this.mapTiles = {};
-    this.mapTiles[key] = sprite;
+
+    if (this.mapTiles[key]) {
+        // Optimize: just update the texture instead of recreating the sprite
+        this.mapTiles[key].setTexture(texture);
+    } else {
+        const sprite = this.add.sprite(tile.x * 32 + 16, tile.y * 32 + 16, texture);
+        sprite.setInteractive();
+        sprite.on('pointerdown', () => {
+          this.handleInteraction(tile.x, tile.y);
+        });
+        this.mapTiles[key] = sprite;
+    }
   }
 
   addPlayer(playerData) {
