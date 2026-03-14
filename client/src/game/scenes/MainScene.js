@@ -70,6 +70,17 @@ export default class MainScene extends Phaser.Scene {
     
     // My player logic
     this.myPlayerId = this.socket.id;
+
+    // Handle Resize
+    this.scale.on('resize', this.handleResize, this);
+    this.handleResize();
+  }
+
+  handleResize(gameSize) {
+    const { width, height } = gameSize || this.scale;
+    // Update camera to center or follow player?
+    // For now, let's just make sure the camera bounds or view is sane.
+    this.cameras.main.setSize(width, height);
   }
 
   update() {
@@ -139,16 +150,37 @@ export default class MainScene extends Phaser.Scene {
     if (this.players[playerData.id]) return;
     const sprite = this.add.sprite(playerData.x, playerData.y, 'player');
     this.players[playerData.id] = sprite;
+    
+    // If it's my player, follow it
+    if (playerData.id === this.socket.id) {
+        this.cameras.main.startFollow(sprite, true, 0.1, 0.1);
+        // Set camera bounds if map size is known
+        if (this.districtWidth && this.districtHeight) {
+            this.cameras.main.setBounds(0, 0, this.districtWidth * 32, this.districtHeight * 32);
+        }
+    }
   }
 
   renderMap(district) {
     // Initial render
     this.mapTiles = {};
+    this.districtWidth = district.width;
+    this.districtHeight = district.height;
+    
+    // Set background color to match grass/ground
+    this.cameras.main.setBackgroundColor('#1a202c');
+    
+    // Create a container for the map or just render
     district.tiles.forEach(row => {
       row.forEach(tile => {
         this.updateTile(tile);
       });
     });
+
+    // If player already exists, update camera bounds
+    if (this.players[this.socket.id]) {
+        this.cameras.main.setBounds(0, 0, this.districtWidth * 32, this.districtHeight * 32);
+    }
   }
 
   handleInteraction(x, y) {

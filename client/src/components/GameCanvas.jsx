@@ -34,7 +34,7 @@ const GameCanvas = ({ username, onDistrictUpdate, onPuzzleTrigger }) => {
     };
   }, [username]);
 
-  return <div id="game-container" />;
+  return <div id="game-container" className="w-screen h-screen" />;
 };
 
 export default GameCanvas;

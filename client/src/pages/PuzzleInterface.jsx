@@ -91,7 +91,7 @@ const PuzzleInterface = () => {
       
       setGrid(uiGrid);
       setGenerating(false);
-    }, 1200);
+    }, 600);
   };
 
   const handleFail = (message) => {
@@ -307,17 +307,17 @@ const PuzzleInterface = () => {
                     onClick={() => rotatePiece(x, y)}
                     className={`
                       relative w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 bg-gray-800 rounded-lg 
-                      ${piece.isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-700'} 
-                      ${piece.hasWater ? 'shadow-[0_0_15px_rgba(59,130,246,0.4)] z-10' : ''}
-                      ${piece.isLeak ? 'shadow-[0_0_15px_rgba(239,68,68,0.4)] z-10' : ''}
+                      ${piece.isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-700/80 active:scale-90'} 
+                      ${piece.hasWater ? 'shadow-[0_0_20px_rgba(59,130,246,0.5)] z-10 border border-blue-400/30' : ''}
+                      ${piece.isLeak ? 'shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 border border-red-400/30' : ''}
                       ${isSolved ? 'pointer-events-none' : ''}
-                      transition-colors duration-200 overflow-hidden flex items-center justify-center
+                      transition-all duration-150 overflow-hidden flex items-center justify-center
                     `}
                   >
                     
                     {/* Pipe Graphic Rotator Container */}
                     <div 
-                      className="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out"
+                      className="absolute inset-0 flex items-center justify-center transition-transform duration-150 ease-out"
                       style={{ transform: `rotate(${piece.rotation}deg)` }}
                     >
                       {/* --- Pipe Shapes --- */}
