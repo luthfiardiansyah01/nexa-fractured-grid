@@ -5,6 +5,8 @@ import { socketService } from '../services/socket';
 
 const GameCanvas = ({ username, onDistrictUpdate, onPuzzleTrigger }) => {
   const gameRef = useRef(null);
+  const initialDistrict = localStorage.getItem('current_district') || 'OldTown';
+  const initialCityName = localStorage.getItem('current_city') || 'Cyber Tokyo';
 
   useEffect(() => {
     if (gameRef.current) return; // Prevent double init
@@ -21,12 +23,12 @@ const GameCanvas = ({ username, onDistrictUpdate, onPuzzleTrigger }) => {
     // Initialize Phaser
     const game = new Phaser.Game(gameConfig);
     game.registry.set('username', username);
+    game.registry.set('currentDistrict', initialDistrict); // Pass initial district context
     game.registry.set('onPuzzleTrigger', onPuzzleTrigger);
     gameRef.current = game;
 
     return () => {
       // Cleanup
-      socketService.disconnect();
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;

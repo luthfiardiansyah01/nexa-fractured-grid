@@ -17,7 +17,14 @@ const CityMap = () => {
   const [districtStatus, setDistrictStatus] = useState({ name: initialDistrict, cityName: initialCityName, waterLevel: 0, flooding: false });
 
   const handleDistrictUpdate = (data) => {
-    setDistrictStatus(data);
+    // Only update if it matches our current district
+    if (data.name === initialDistrict) {
+      setDistrictStatus(prev => ({ 
+        ...prev, 
+        ...data,
+        cityName: prev.cityName // Ensure cityName is never overwritten by partial server data
+      }));
+    }
   };
 
   const handlePuzzleTrigger = (data) => {
@@ -37,7 +44,7 @@ const CityMap = () => {
   const getStatus = () => {
     if (districtStatus.flooding || districtStatus.waterLevel > 80) return { text: 'Critical', color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30' };
     if (districtStatus.waterLevel > 50) return { text: 'Warning', color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30' };
-    return { text: 'Stable', color: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/30' };
+    return { text: 'Stable', color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30' };
   };
 
   const status = getStatus();
@@ -134,8 +141,8 @@ const CityMap = () => {
               {/* Status */}
               <div className="flex justify-between items-center pt-2">
                 <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Status</span>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${status.bg} ${status.border} ${status.color}`}>
-                  {status.text}
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all duration-500 ${status.bg} ${status.border} ${status.color} ${status.text === 'Stable' ? 'shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse' : ''}`}>
+                  {status.text === 'Stable' ? 'System Secured' : status.text}
                   <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                 </div>
               </div>

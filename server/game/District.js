@@ -65,6 +65,7 @@ class District {
     } else if (type === 'puzzle_solved') {
        if (tile.type === 3) {
          tile.type = 2; // Fixed pipe
+         this.waterLevel = Math.max(0, this.waterLevel - 20); // More dramatic reduction
          return { success: true, solved: true, tile };
        }
     }

@@ -53,7 +53,8 @@ class GameManager {
       let safeUsername = (userData.username || '').trim().substring(0, 15);
       if (!safeUsername) safeUsername = `Player_${socket.id.substr(0, 4)}`;
       
-      const player = new Player(socket.id, safeUsername, 'OldTown');
+      const requestedDistrict = (userData.district && this.districts[userData.district]) ? userData.district : 'OldTown';
+      const player = new Player(socket.id, safeUsername, requestedDistrict);
       
       // Load from DB
       try {
@@ -64,7 +65,8 @@ class GameManager {
               player.xp = dbPlayer.xp;
               player.coins = dbPlayer.coins;
               player.inventory = dbPlayer.inventory || player.inventory;
-              if (this.districts[dbPlayer.district]) {
+              // If we didn't explicitly request one, use the saved one
+              if (!userData.district && this.districts[dbPlayer.district]) {
                   player.currentDistrict = dbPlayer.district;
               }
           }
@@ -127,7 +129,7 @@ class GameManager {
                   // Generate puzzle and send to client. Size expands based on District or just Random MVP
                   const puzzleSize = actionData.difficulty === 'Medium' ? 6 : actionData.difficulty === 'Hard' ? 8 : 5;
                   const puzzleData = PuzzleGenerator.generatePuzzle(puzzleSize);
-                  this.activePuzzles[socket.id] = { ...puzzleData, x: actionData.x, y: actionData.y };
+                  this.activePuzzles[player.username] = { ...puzzleData, x: actionData.x, y: actionData.y };
                   
                   // Send scrambled grid to client (do not send correctRotation)
                   const clientGrid = puzzleData.grid.map(row => 
@@ -163,17 +165,13 @@ class GameManager {
 
     socket.on('puzzleSolved', (data) => {
        const player = this.players[socket.id];
-       const puzzleState = this.activePuzzles[socket.id];
+       if (!player) return;
        
-       if (player && puzzleState && puzzleState.x === data.x && puzzleState.y === data.y) {
+       const puzzleState = this.activePuzzles[player.username];
+       
+       if (puzzleState && puzzleState.x === data.x && puzzleState.y === data.y) {
          // Basic validation: Check if submitted grid matches the generated grid's correct rotations
-         let isValid = true;
-         // Trust the client for MVP validation (client verifies network from source to drain)
-         if (data.isValid) {
-            isValid = true;
-         } else {
-            isValid = false; 
-         }
+         let isValid = !!data.isValid;
 
          if (isValid) {
              const district = this.districts[player.currentDistrict];
@@ -184,6 +182,14 @@ class GameManager {
                   districtName: player.currentDistrict, 
                   tile: result.tile 
                 });
+                
+                // Immediate Status update for HUD
+                this.io.emit('districtStatus', {
+                   name: player.currentDistrict,
+                   waterLevel: district.waterLevel,
+                   flooding: district.waterLevel > 80
+                });
+
                 // Reward player
                 player.xp += 100;
                 player.coins += 50;
@@ -191,7 +197,7 @@ class GameManager {
              }
          }
          
-         delete this.activePuzzles[socket.id]; // Clear state
+         delete this.activePuzzles[player.username]; // Clear state
        }
     });
 

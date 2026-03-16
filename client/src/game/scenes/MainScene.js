@@ -11,8 +11,10 @@ export default class MainScene extends Phaser.Scene {
     this.socket = socketService.socket;
     
     const username = this.game.registry.get('username') || 'Player';
-    // Join game
-    this.socket.emit('joinGame', { username });
+    const district = this.game.registry.get('currentDistrict') || 'OldTown';
+    
+    // Join game with district context
+    this.socket.emit('joinGame', { username, district });
 
     // Handle game state
     this.socket.on('gameState', (state) => {

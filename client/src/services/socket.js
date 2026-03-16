@@ -8,6 +8,10 @@ class SocketService {
   }
 
   connect() {
+    if (this.socket && this.socket.connected) {
+      return this.socket;
+    }
+    
     this.socket = io(SOCKET_URL);
     
     this.socket.on("connect", () => {
@@ -18,7 +22,7 @@ class SocketService {
   }
 
   disconnect() {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       this.socket.disconnect();
     }
   }
